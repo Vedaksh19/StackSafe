@@ -1,0 +1,16 @@
+{
+  "name": "stacksafe-functions",
+  "version": "1.0.0",
+  "description": "Netlify backend functions for StackSafe",
+  "type": "module",
+  "scripts": {
+    "dev": "netlify dev",
+    "build": "echo 'No build step required'",
+    "deploy": "netlify deploy --prod"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.38.4",
+    "crypto-js": "^4.2.0",
+    "node-fetch": "^3.3.2"
+  }
+}

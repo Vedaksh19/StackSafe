@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StackSafe - Decentralized Digital Inheritance</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #020412; color: #E2E8F0; }
+        #hero-canvas { position: absolute; top:0; left:0; width:100%; height:100%; z-index:0; }
+        .glass-effect { background: rgba(15, 23, 42, 0.3); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        .nav-link { position: relative; transition: color 0.3s; }
+        .nav-link::after { content: ''; position: absolute; width: 0; height: 2px; bottom: -4px; left: 50%; background-color: #38BDF8; transition: all 0.3s ease-in-out; transform: translateX(-50%); }
+        .nav-link:hover::after, .nav-link.active::after { width: 100%; }
+        .hero-glow { text-shadow: 0 0 15px rgba(56,189,248,0.4), 0 0 30px rgba(56,189,248,0.3); }
+        .feature-card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .feature-card:hover { transform: translateY(-10px); box-shadow: 0 20px 25px -5px rgba(56,189,248,0.1), 0 10px 10px -5px rgba(56,189,248,0.04); }
+        .scroll-animate { opacity:0; transform: translateY(30px); transition: opacity 0.6s ease-out, transform 0.6s ease-out; }
+        .scroll-animate.visible { opacity:1; transform: translateY(0); }
+    </style>
+</head>
+<body class="overflow-x-hidden">
+
+<!-- Header -->
+<header id="header" class="fixed top-0 left-0 right-0 z-50 transition-all duration-300">
+    <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+        <a href="#home" class="text-2xl font-bold tracking-wider text-white">Stack<span class="text-sky-400">Safe</span></a>
+        <div class="hidden md:flex items-center space-x-10">
+            <a href="#home" class="nav-link text-slate-300 hover:text-sky-400 active">Home</a>
+            <a href="#features" class="nav-link text-slate-300 hover:text-sky-400">Features</a>
+            <a href="#how-it-works" class="nav-link text-slate-300 hover:text-sky-400">How It Works</a>
+            <a href="#security" class="nav-link text-slate-300 hover:text-sky-400">Security</a>
+            <a href="#contact" class="nav-link text-slate-300 hover:text-sky-400">Contact Us</a>
+        </div>
+        <a href="index.html" class="hidden md:block bg-sky-500 hover:bg-sky-600 text-white font-semibold px-5 py-2 rounded-lg transition-transform duration-300 hover:scale-105">
+            Launch App
+        </a>
+        <button id="mobile-menu-button" class="md:hidden text-white">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
+            </svg>
+        </button>
+    </nav>
+    <div id="mobile-menu" class="hidden md:hidden glass-effect">
+        <a href="#home" class="block text-center py-3 px-4 text-sm text-slate-300 hover:bg-slate-700">Home</a>
+        <a href="#features" class="block text-center py-3 px-4 text-sm text-slate-300 hover:bg-slate-700">Features</a>
+        <a href="#how-it-works" class="block text-center py-3 px-4 text-sm text-slate-300 hover:bg-slate-700">How It Works</a>
+        <a href="#security" class="block text-center py-3 px-4 text-sm text-slate-300 hover:bg-slate-700">Security</a>
+        <a href="#contact" class="block text-center py-3 px-4 text-sm text-slate-300 hover:bg-slate-700">Contact Us</a>
+        <div class="p-4">
+            <a href="index.html" class="block text-center bg-sky-500 hover:bg-sky-600 text-white font-semibold px-5 py-2 rounded-lg transition-colors">
+                Launch App
+            </a>
+        </div>
+    </div>
+</header>
+
+<main>
+    <!-- Hero Section -->
+    <section id="home" class="relative min-h-screen flex items-center justify-center overflow-hidden">
+        <canvas id="hero-canvas"></canvas>
+        <div class="relative z-10 text-center px-4">
+            <h1 class="text-5xl md:text-7xl font-black text-white leading-tight mb-4 hero-glow">
+                Secure Your Digital Legacy.
+            </h1>
+            <p class="text-lg md:text-xl text-slate-300 max-w-3xl mx-auto mb-8">
+                StackSafe is a decentralized dead man's switch, ensuring your crypto assets are passed on to your chosen nominee, secured by Bitcoin.
+            </p>
+            <div class="flex justify-center gap-4">
+                <a href="index.html" class="bg-sky-500 hover:bg-sky-600 text-white font-bold text-lg px-8 py-4 rounded-lg transition-transform duration-300 hover:scale-105">
+                    Launch App
+                </a>
+                <a href="#features" class="bg-slate-700/50 border border-slate-600 hover:bg-slate-700 text-white font-bold text-lg px-8 py-4 rounded-lg transition-colors">
+                    Learn More
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-24 bg-slate-900/50">
+        <div class="container mx-auto px-6">
+            <div class="text-center mb-16 scroll-animate">
+                <h2 class="text-4xl md:text-5xl font-bold text-white">The Future of Digital Inheritance</h2>
+                <p class="text-slate-400 mt-4 max-w-2xl mx-auto">StackSafe combines cutting-edge technologies to provide a trustless, secure, and autonomous solution.</p>
+            </div>
+            <div class="grid md:grid-cols-3 gap-8">
+                <!-- Feature cards -->
+                <div class="feature-card glass-effect rounded-xl p-8 text-center scroll-animate" style="transition-delay: 100ms;">
+                    <div class="text-sky-400 mb-4">
+                        <!-- SVG Icon -->
+                    </div>
+                    <h3 class="text-2xl font-bold text-white mb-2">Decentralized Vaults</h3>
+                    <p class="text-slate-400">Deploy your own autonomous smart contract on the Stacks blockchain. You are the sole owner; we never touch your keys or assets.</p>
+                </div>
+                <div class="feature-card glass-effect rounded-xl p-8 text-center scroll-animate" style="transition-delay: 200ms;">
+                    <div class="text-sky-400 mb-4">
+                        <!-- SVG Icon -->
+                    </div>
+                    <h3 class="text-2xl font-bold text-white mb-2">Simplified 2FA</h3>
+                    <p class="text-slate-400">Your nominee's identity is secured with a two-factor process: a one-time password and a secret passphrase, preventing unauthorized access.</p>
+                </div>
+                <div class="feature-card glass-effect rounded-xl p-8 text-center scroll-animate" style="transition-delay: 300ms;">
+                    <div class="text-sky-400 mb-4">
+                        <!-- SVG Icon -->
+                    </div>
+                    <h3 class="text-2xl font-bold text-white mb-2">Bitcoin-Grade Security</h3>
+                    <p class="text-slate-400">Built on Stacks, every transaction and vault operation is ultimately settled and secured by the most robust blockchain in the world: Bitcoin.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section id="how-it-works" class="py-24">
+        <div class="container mx-auto px-6">
+            <div class="text-center mb-16 scroll-animate">
+                <h2 class="text-4xl md:text-5xl font-bold text-white">Simple, Secure, Automated</h2>
+                <p class="text-slate-400 mt-4 max-w-2xl mx-auto">Follow a straightforward process to protect your assets for the future.</p>
+            </div>
+            <div class="relative">
+                <div class="hidden md:block absolute top-1/2 left-0 w-full h-0.5 bg-slate-700 -translate-y-1/2"></div>
+                <div class="grid md:grid-cols-3 gap-16 relative">
+                    <!-- Step 1 -->
+                    <div class="text-center scroll-animate" style="transition-delay: 100ms;">
+                        <div class="relative mb-4">
+                            <div class="w-24 h-24 mx-auto rounded-full bg-slate-800 border-2 border-sky-500 flex items-center justify-center text-3xl font-bold text-sky-400">1</div>
+                        </div>
+                        <h3 class="text-2xl font-bold text-white mb-2">Deploy Vault</h3>
+                        <p class="text-slate-400">Connect your wallet, define your nominee, set a "heartbeat" interval, and deploy your personal smart contract.</p>
+                    </div>
+                    <!-- Step 2 -->
+                    <div class="text-center scroll-animate" style="transition-delay: 200ms;">
+                        <div class="relative mb-4">
+                            <div class="w-24 h-24 mx-auto rounded-full bg-slate-800 border-2 border-sky-500 flex items-center justify-center text-3xl font-bold text-sky-400">2</div>
+                        </div>
+                        <h3 class="text-2xl font-bold text-white mb-2">Ping to Stay Active</h3>
+                        <p class="text-slate-400">Periodically send a simple "ping" transaction to your vault. This proves you're active and resets the inheritance timer.</p>
+                    </div>
+                    <!-- Step 3 -->
+                    <div class="text-center scroll-animate" style="transition-delay: 300ms;">
+                        <div class="relative mb-4">
+                            <div class="w-24 h-24 mx-auto rounded-full bg-slate-800 border-2 border-sky-500 flex items-center justify-center text-3xl font-bold text-sky-400">3</div>
+                        </div>
+                        <h3 class="text-2xl font-bold text-white mb-2">Automated Claim</h3>
+                        <p class="text-slate-400">If the timer expires, your nominee can initiate a claim. After passing OTP and passphrase verification, the assets are transferred automatically.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Security Section -->
+    <section id="security" class="py-24 bg-slate-900/50">
+        <div class="container mx-auto px-6">
+            <div class="text-center mb-16 scroll-animate">
+                <h2 class="text-4xl md:text-5xl font-bold text-white">Engineered for Trust</h2>
+                <p class="text-slate-400 mt-4 max-w-2xl mx-auto">Our hybrid security model provides defense-in-depth for your digital legacy.</p>
+            </div>
+            <div class="max-w-4xl mx-auto grid md:grid-cols-2 gap-8">
+                <div class="glass-effect p-8 rounded-lg scroll-animate" style="transition-delay: 100ms;">
+                    <h3 class="text-2xl font-bold text-sky-400 mb-3">On-Chain Assurance</h3>
+                    <ul class="space-y-3 text-slate-300">
+                        <li>&#10003; <b>Trustless Smart Contracts:</b> Code is law. Vault operates exactly as programmed.</li>
+                        <li>&#10003; <b>Clarity Language:</b> Predictable, re-entrancy safe smart contracts.</li>
+                        <li>&#10003; <b>Bitcoin Finality:</b> Anchored to Bitcoin for highest security.</li>
+                    </ul>
+                </div>
+                <div class="glass-effect p-8 rounded-lg scroll-animate" style="transition-delay: 200ms;">
+                    <h3 class="text-2xl font-bold text-sky-400 mb-3">Off-Chain Verification</h3>
+                    <ul class="space-y-3 text-slate-300">
+                        <li>&#10003; <b>Secure 2FA:</b> OTP + Passphrase ensures only nominee can claim.</li>
+                        <li>&#10003; <b>Supabase Auth:</b> Handles OTP and user management securely.</li>
+                        <li>&#10003; <b>Encrypted Secrets:</b> Off-chain sensitive data encrypted with AES.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" class="py-24">
+        <div class="container mx-auto px-6">
+            <div class="text-center mb-16 scroll-animate">
+                <h2 class="text-4xl md:text-5xl font-bold text-white">Get In Touch</h2>
+                <p class="text-slate-400 mt-4 max-w-2xl mx-auto">Have questions, feedback, or partnership inquiries? We'd love to hear from you.</p>
+            </div>
+            <div class="max-w-4xl mx-auto grid md:grid-cols-2 gap-10 glass-effect p-8 rounded-2xl scroll-animate">
+                <div>
+                    <h3 class="text-2xl font-bold text-sky-400 mb-4">Send us a Message</h3>
+                    <form action="#" method="POST" class="space-y-4">
+                        <input type="text" placeholder="Your Name" class="w-full p-3 rounded-md" required>
+                        <input type="email" placeholder="Your Email" class="w-full p-3 rounded-md" required>
+                        <textarea placeholder="Message" rows="4" class="w-full p-3 rounded-md" required></textarea>
+                        <button type="submit" class="w-full py-3 bg-sky-500 text-white rounded-md hover:bg-sky-600">Send Message</button>
+                    </form>
+                </div>
+                <div>
+                    <h3 class="text-2xl font-bold text-sky-400 mb-4">Contact Information</h3>
+                    <p class="text-slate-300">Reach out via email or follow us on social media.</p>
+                    <ul class="space-y-3 text-slate-300 mt-4">
+                        <li>&#9993; support@stacksafe.tech</li>
+                        <li>&#128257; Follow us on social media for updates</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<footer class="border-t border-slate-800 py-8">
+    <div class="container mx-auto px-6 text-center text-slate-400">
+        <p>&copy; 2025 StackSafe. All rights reserved.</p>
+        <p class="text-sm mt-2">Securing your digital future, today.</p>
+    </div>
+</footer>
+
+<!-- Three.js Background and Scripts -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+    // Three.js + Mobile menu + Scroll animations
+    const mobileMenuButton = document.getElementById('mobile-menu-button');
+    const mobileMenu = document.getElementById('mobile-menu');
+    mobileMenuButton.addEventListener('click', () => mobileMenu.classList.toggle('hidden'));
+
+    const header = document.getElementById('header');
+    window.addEventListener('scroll', () => {
+        if(window.scrollY > 50) header.classList.add('glass-effect');
+        else header.classList.remove('glass-effect');
+    });
+
+    const sections = document.querySelectorAll('main > section');
+    const navLinks = document.querySelectorAll('.nav-link');
+    const observerOptions = { root:null, rootMargin:'0px', threshold:0.4 };
+    const sectionObserver = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+            if(entry.isIntersecting){
+                navLinks.forEach(link => link.classList.remove('active'));
+                navLinks.forEach(link => {
+                    if(link.getAttribute('href').substring(1) === entry.target.id) link.classList.add('active');
+                });
+            }
+        });
+    }, observerOptions);
+    sections.forEach(section => sectionObserver.observe(section));
+
+    const animatedElements = document.querySelectorAll('.scroll-animate');
+    const animateObserver = new IntersectionObserver(entries => {
+        entries.forEach(entry => { if(entry.isIntersecting) entry.target.classList.add('visible'); });
+    }, { threshold:0.1 });
+    animatedElements.forEach(el => animateObserver.observe(el));
+
+    // Three.js background
+    let scene, camera, renderer, particles, particleSystem;
+    function initThreeJS() {
+        const canvas = document.getElementById('hero-canvas'); if(!canvas) return;
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+
+        const particleCount = 5000;
+        particles = new THREE.BufferGeometry();
+        const positions = new Float32Array(particleCount*3);
+        for(let i=0;i<particleCount*3;i++) positions[i]=(Math.random()-0.5)*10;
+        particles.setAttribute('position', new THREE.BufferAttribute(positions,3));
+
+        const particleMaterial = new THREE.PointsMaterial({
+            color:0x38BDF8, size:0.02, blending:THREE.AdditiveBlending, transparent:true, opacity:0.8
+        });
+        particleSystem = new THREE.Points(particles, particleMaterial);
+        scene.add(particleSystem);
+        camera.position.z = 5;
+    }
+
+    let mouseX=0, mouseY=0;
+    document.addEventListener('mousemove', e => { mouseX=(e.clientX/window.innerWidth)*0.5; mouseY=-(e.clientY/window.innerHeight)*0.5; });
+
+    function animate() {
+        if(!renderer || !particleSystem) return;
+        requestAnimationFrame(animate);
+        const elapsedTime = Date.now()*0.0001;
+        particleSystem.rotation.y = elapsedTime;
+        camera.position.x += (mouseX-camera.position.x)*0.05;
+        camera.position.y += (mouseY-camera.position.y)*0.05;
+        camera.lookAt(scene.position);
+        renderer.render(scene,camera);
+    }
+
+    function onWindowResize() {
+        if(!renderer) return;
+        camera.aspect = window.innerWidth/window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+    }
+
+    window.addEventListener('resize', onWindowResize);
+    initThreeJS();
+    animate();
+</script>
+
+</body>
+</html>

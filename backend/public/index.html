@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>StackSafe — resilient build</title>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- React -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+
+  <!-- Babel for in-browser JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Utilities -->
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/js-sha256@0.9.0/build/sha256.min.js"></script>
+
+  <!-- Stacks Connect (optional) -->
+  <script src="https://unpkg.com/@stacks/connect/dist/umd/index.umd.js"></script>
+
+  <style>
+    body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background:#0f172a; color:#E2E8F0; }
+    .app-card { background:#1e293b; }
+    .toast-enter { transform: translateY(-6px); opacity: 0; }
+  </style>
+</head>
+<body>
+  <div id="root" class="py-12"></div>
+
+  <script type="text/babel">
+    // --------- Utilities & Global Error Overlay (helps debugging) ----------
+    const { useState, useEffect } = React;
+
+    function hexFromBytes(bytes) {
+      return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function createErrorOverlay(text) {
+      let el = document.getElementById('error-overlay');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'error-overlay';
+        el.style.position = 'fixed';
+        el.style.left = '12px';
+        el.style.right = '12px';
+        el.style.bottom = '12px';
+        el.style.zIndex = 99999;
+        document.body.appendChild(el);
+      }
+      el.innerHTML = `
+        <div class="p-3 rounded-lg bg-red-900 text-white shadow-lg">
+          <div style="font-weight:700;margin-bottom:6px">Runtime error (see console for full stack)</div>
+          <pre style="white-space:pre-wrap; max-height:220px; overflow:auto; margin:0">${escapeHtml(String(text))}</pre>
+        </div>
+      `;
+    }
+
+    window.addEventListener('error', (e) => {
+      console.error('Uncaught error', e.error || e.message);
+      createErrorOverlay(e.error ? (e.error.stack || e.error.message) : e.message);
+    });
+
+    window.addEventListener('unhandledrejection', (ev) => {
+      console.error('Unhandled promise rejection', ev.reason);
+      createErrorOverlay(ev.reason && ev.reason.stack ? ev.reason.stack : JSON.stringify(ev.reason));
+    });
+
+    // ----------------- Configuration -----------------
+    const API_URL = 'http://localhost:4000'; // change when you have a backend
+    const appConfig = window.stacksConnect?.AppConfig ? new window.stacksConnect.AppConfig(['store_write','publish_data']) : null;
+    const userSession = window.stacksConnect?.UserSession ? new window.stacksConnect.UserSession({ appConfig }) : null;
+
+    // ----------------- Toast system -----------------
+    function Toasts({ toasts, removeToast }) {
+      return (
+        <div className="fixed top-5 right-5 space-y-3 z-50">
+          {toasts.map(t => (
+            <div key={t.id} className={`px-4 py-3 rounded-lg shadow-lg text-white ${t.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div>{t.type === 'success' ? '✔' : '⚠'}</div>
+                  <div className="text-sm">{t.message}</div>
+                </div>
+                <button onClick={() => removeToast(t.id)} className="font-bold">×</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // ----------------- Loading screen -----------------
+    function LoadingScreen({ message }) {
+      return (
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center text-sky-300">
+            <svg className="animate-spin h-10 w-10 mx-auto mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"></path>
+            </svg>
+            <div className="text-lg">{message || 'Loading...'}</div>
+          </div>
+        </div>
+      );
+    }
+
+    // ----------------- Functional UI components -----------------
+    function Register({ ownerWallet, addToast }) {
+      const [nomineeWallet, setNomineeWallet] = useState('');
+      const [nomineeContact, setNomineeContact] = useState('');
+      const [password, setPassword] = useState('');
+      const [passphrase, setPassphrase] = useState('');
+      const [heartbeat, setHeartbeat] = useState(4320);
+      const [gracePeriod, setGracePeriod] = useState(1008);
+      const [generatedSalt, setGeneratedSalt] = useState('');
+      const [loading, setLoading] = useState(false);
+      const [infoText, setInfoText] = useState('');
+
+      const handleRegister = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setInfoText('');
+        setGeneratedSalt('');
+        try {
+          // generate salt
+          const saltBuf = window.crypto.getRandomValues(new Uint8Array(32));
+          const saltHex = hexFromBytes(saltBuf);
+          setGeneratedSalt(saltHex);
+
+          // create secret hash (0x + sha256(hexSalt + password))
+          const secretHash = '0x' + sha256(saltHex + password);
+
+          // Attempt to call real backend
+          try {
+            const res = await axios.post(`${API_URL.replace(/\/$/,'')}/register`, {
+              ownerWallet, nomineeWallet, nomineeContact, secretHash,
+              heartbeatInterval: parseInt(heartbeat,10), gracePeriod: parseInt(gracePeriod,10),
+              salt: saltHex, passphrase
+            }, { timeout: 5000 });
+            addToast(`Vault deployed: ${res.data.vaultAddress}`, 'success');
+            setInfoText(`Vault deployed: ${res.data.vaultAddress}`);
+          } catch (postErr) {
+            console.warn('API register failed:', postErr?.message || postErr);
+            // Fallback: simulate a successful deployment so UI works "anyhow"
+            const simulated = 'SIMULATED_VAULT_' + Date.now().toString(36).toUpperCase();
+            addToast(`Backend unreachable — simulated vault: ${simulated}`, 'success');
+            setInfoText(`Simulated vault created: ${simulated} (no backend)`);
+          }
+        } catch (err) {
+          console.error(err);
+          addToast('Registration failed: ' + (err.message || err), 'error');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      return (
+        <div className="app-card p-6 rounded-xl max-w-3xl mx-auto">
+          <h2 className="text-2xl font-bold mb-4">Register a New Vault</h2>
+          <form onSubmit={handleRegister} className="space-y-3">
+            <input className="w-full p-3 bg-slate-700 rounded-md border border-slate-600" value={nomineeWallet} onChange={e=>setNomineeWallet(e.target.value)} placeholder="Nominee Stacks Address (ST...)" required />
+            <input className="w-full p-3 bg-slate-700 rounded-md border border-slate-600" value={nomineeContact} onChange={e=>setNomineeContact(e.target.value)} placeholder="Nominee Email" required />
+            <input className="w-full p-3 bg-slate-700 rounded-md border border-slate-600" type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Secret Password" required />
+            <input className="w-full p-3 bg-slate-700 rounded-md border border-slate-600" type="password" value={passphrase} onChange={e=>setPassphrase(e.target.value)} placeholder="Secret Passphrase" required />
+            <div className="grid grid-cols-2 gap-3">
+              <input className="p-3 bg-slate-700 rounded-md border border-slate-600" type="number" value={heartbeat} onChange={e=>setHeartbeat(e.target.value)} placeholder="Heartbeat" />
+              <input className="p-3 bg-slate-700 rounded-md border border-slate-600" type="number" value={gracePeriod} onChange={e=>setGracePeriod(e.target.value)} placeholder="Grace period" />
+            </div>
+            <button disabled={loading} className="w-full py-3 bg-green-500 rounded-md font-bold hover:bg-green-600">
+              {loading ? 'Deploying...' : `Deploy Vault (${ownerWallet || 'owner unknown'})`}
+            </button>
+          </form>
+
+          {generatedSalt && (
+            <div className="mt-4 p-3 rounded-md bg-sky-900/40 border border-sky-400 text-sky-200">
+              <div className="font-bold">⚠️ Keep this salt (share with nominee)</div>
+              <pre className="break-all mt-2 text-xs p-2 bg-slate-800 rounded">{generatedSalt}</pre>
+            </div>
+          )}
+
+          {infoText && <div className="mt-3 text-sky-300">{infoText}</div>}
+        </div>
+      );
+    }
+
+    function Enroll({ addToast }) {
+      const [contact, setContact] = useState('');
+      const [vaultAddress, setVaultAddress] = useState('');
+      const [otp, setOtp] = useState('');
+      const [passphrase, setPassphrase] = useState('');
+      const [step, setStep] = useState(1);
+      const [loading, setLoading] = useState(false);
+
+      const startOtp = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+          // Try real API, fallback to simulated success
+          try {
+            await axios.post(`${API_URL.replace(/\/$/,'')}/enroll/start-otp`, { contact }, { timeout: 5000 });
+            addToast('OTP sent (via backend).', 'success');
+          } catch (err) {
+            console.warn('start-otp backend failed:', err?.message || err);
+            addToast('OTP not sent (no backend) — using simulated OTP: 123456', 'success');
+          }
+          setStep(2);
+        } catch (err) {
+          addToast('Failed to start enrollment: ' + (err.message || err), 'error');
+        } finally { setLoading(false); }
+      };
+
+      const verify = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+          try {
+            const res = await axios.post(`${API_URL.replace(/\/$/,'')}/enroll/verify`, { vaultAddress, contact, otp, passphrase }, { timeout: 5000 });
+            addToast(res.data.message || 'Enrolled', 'success');
+          } catch (err) {
+            console.warn('enroll verify failed:', err?.message || err);
+            addToast('Backend unreachable — simulated enrollment complete', 'success');
+          }
+          setStep(3);
+        } catch (err) {
+          addToast('Enrollment failed: ' + (err.message || err), 'error');
+        } finally { setLoading(false); }
+      };
+
+      return (
+        <div className="app-card p-6 rounded-xl max-w-3xl mx-auto">
+          <h2 className="text-2xl font-bold mb-4">Nominee Enrollment</h2>
+
+          {step === 1 && (
+            <form onSubmit={startOtp} className="space-y-3">
+              <input className="w-full p-3 bg-slate-700 rounded-md border border-slate-600" placeholder="Your email" value={contact} onChange={e=>setContact(e.target.value)} required />
+              <button className="w-full py-3 bg-sky-500 rounded-md font-bold" disabled={loading}>{loading ? 'Sending...' : 'Send OTP'}</button>
+            </form>
+          )}
+
+          {step === 2 && (
+            <form onSubmit={verify} className="space-y-3">
+              <input className="w-full p-3 bg-slate-700 rounded-md border border-slate-600" placeholder="Vault Address" value={vaultAddress} onChange={e=>setVaultAddress(e.target.value)} required />
+              <input className="w-full p-3 bg-slate-700 rounded-md border border-slate-600" placeholder="OTP (6-digit)" value={otp} onChange={e=>setOtp(e.target.value)} required />
+              <input className="w-full p-3 bg-slate-700 rounded-md border border-slate-600" placeholder="Secret passphrase" type="password" value={passphrase} onChange={e=>setPassphrase(e.target.value)} required />
+              <button className="w-full py-3 bg-green-500 rounded-md font-bold" disabled={loading}>{loading ? 'Verifying...' : 'Complete Enrollment'}</button>
+            </form>
+          )}
+
+          {step === 3 && <div className="text-green-400 font-bold">Enrollment complete (simulated if backend not available).</div>}
+        </div>
+      );
+    }
+
+    function Claim({ addToast }) {
+      const [vaultAddress, setVaultAddress] = useState('');
+      const [otp, setOtp] = useState('');
+      const [passphrase, setPassphrase] = useState('');
+      const [step, setStep] = useState(1);
+      const [loading, setLoading] = useState(false);
+
+      const startClaim = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+          try {
+            await axios.post(`${API_URL.replace(/\/$/,'')}/claim/start-otp`, { vaultAddress }, { timeout: 5000 });
+            addToast('OTP sent (backend).', 'success');
+          } catch (err) {
+            console.warn('claim start failed:', err);
+            addToast('Backend unreachable — simulated OTP: 123456', 'success');
+          }
+          setStep(2);
+        } catch (err) {
+          addToast('Failed to start claim: ' + (err.message || err), 'error');
+        } finally { setLoading(false); }
+      };
+
+      const executeClaim = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+          try {
+            const res = await axios.post(`${API_URL.replace(/\/$/,'')}/claim/execute`, { vaultAddress, otp, passphrase }, { timeout: 5000 });
+            addToast(`Claimed: tx ${res.data.txId}`, 'success');
+          } catch (err) {
+            console.warn('claim execute failed:', err);
+            addToast('Backend unreachable — simulated claim success (no tx).', 'success');
+          }
+          setStep(3);
+        } catch (err) {
+          addToast('Claim failed: ' + (err.message || err), 'error');
+        } finally { setLoading(false); }
+      };
+
+      return (
+        <div className="app-card p-6 rounded-xl max-w-3xl mx-auto">
+          <h2 className="text-2xl font-bold mb-4">Claim Assets</h2>
+
+          {step === 1 && (
+            <form onSubmit={startClaim} className="space-y-3">
+              <input className="w-full p-3 bg-slate-700 rounded-md border border-slate-600" placeholder="Vault Address" value={vaultAddress} onChange={e=>setVaultAddress(e.target.value)} required />
+              <button className="w-full py-3 bg-sky-500 rounded-md font-bold" disabled={loading}>{loading ? 'Sending...' : 'Start Claim'}</button>
+            </form>
+          )}
+
+          {step === 2 && (
+            <form onSubmit={executeClaim} className="space-y-3">
+              <input className="w-full p-3 bg-slate-700 rounded-md border border-slate-600" placeholder="OTP" value={otp} onChange={e=>setOtp(e.target.value)} required />
+              <input className="w-full p-3 bg-slate-700 rounded-md border border-slate-600" placeholder="Secret passphrase" type="password" value={passphrase} onChange={e=>setPassphrase(e.target.value)} required />
+              <button className="w-full py-3 bg-green-500 rounded-md font-bold" disabled={loading}>{loading ? 'Claiming...' : 'Verify and Claim Assets'}</button>
+            </form>
+          )}
+
+          {step === 3 && <div className="text-green-400 font-bold">Claim executed (simulated if backend not available).</div>}
+        </div>
+      );
+    }
+
+    function Ping({ addToast }) {
+      return (
+        <div className="app-card p-6 rounded-xl max-w-3xl mx-auto">
+          <h2 className="text-2xl font-bold mb-4">Ping Vault</h2>
+          <p className="mb-4 text-slate-300">This would broadcast a ping transaction (placeholder).</p>
+          <button onClick={() => addToast('Ping simulated', 'success')} className="bg-slate-500 px-4 py-2 rounded-md">Ping (Simulated)</button>
+        </div>
+      );
+    }
+
+    // ----------------- Main App (no external router) -----------------
+    function App() {
+      const [activeTab, setActiveTab] = useState('register'); // register | enroll | claim | ping
+      const [userData, setUserData] = useState(null);
+      const [loadingInit, setLoadingInit] = useState(true);
+      const [toasts, setToasts] = useState([]);
+
+      // init: small delay to simulate session check
+      useEffect(() => {
+        const init = async () => {
+          try {
+            if (userSession && userSession.isSignInPending && userSession.isSignInPending()) {
+              await userSession.handlePendingSignIn();
+            }
+            if (userSession && userSession.isUserSignedIn && userSession.isUserSignedIn()) {
+              setUserData(userSession.loadUserData());
+            }
+          } catch (err) {
+            console.warn('session init err', err);
+          } finally {
+            // small delay for nicer UX
+            setTimeout(() => setLoadingInit(false), 350);
+          }
+        };
+        init();
+      }, []);
+
+      const addToast = (message, type='success') => {
+        const id = Date.now() + Math.random();
+        setToasts(prev => [...prev, { id, message, type }]);
+        // auto remove
+        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
+      };
+
+      const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
+
+      const connectWallet = () => {
+        if (window.stacksConnect?.showConnect && userSession) {
+          try {
+            window.stacksConnect.showConnect({
+              userSession,
+              appName: 'StackSafe',
+              onFinish: () => { window.location.reload(); },
+              onCancel: () => addToast('User cancelled connection', 'error')
+            });
+          } catch (err) {
+            addToast('Stacks Connect failed: ' + (err.message || err), 'error');
+          }
+          return;
+        }
+        // fallback: simulate a wallet connection
+        addToast('No Stacks wallet available — simulated login', 'success');
+        setUserData({ profile: { stxAddress: { mainnet: 'ST_SIMULATED_OWNER' } } });
+      };
+
+      const disconnectWallet = () => {
+        if (userSession && userSession.signUserOut) {
+          try {
+            userSession.signUserOut(window.location.origin);
+          } catch (err) {
+            console.warn('sign out failed', err);
+          }
+        }
+        setUserData(null);
+        addToast('Disconnected', 'success');
+      };
+
+      if (loadingInit) return <LoadingScreen message="Checking wallet & initializing..." />;
+
+      const ownerWallet = userData?.profile?.stxAddress?.mainnet || '';
+
+      return (
+        <div className="max-w-5xl mx-auto px-4">
+          <Toasts toasts={toasts} removeToast={removeToast} />
+          <header className="flex items-center justify-between py-6">
+            <h1 className="text-3xl font-extrabold text-sky-400">StackSafe</h1>
+            <div className="flex items-center gap-3">
+              <nav className="flex gap-2">
+                {['register','enroll','claim','ping'].map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-3 py-2 rounded-md ${activeTab === tab ? 'bg-sky-500 text-black font-semibold' : 'hover:bg-slate-700'}`}>
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  </button>
+                ))}
+              </nav>
+              {userData ? (
+                <div className="flex items-center gap-2">
+                  <div className="px-3 py-2 bg-slate-800 rounded">{ownerWallet || 'Connected'}</div>
+                  <button onClick={disconnectWallet} className="bg-red-500 px-3 py-2 rounded-md">Disconnect</button>
+                </div>
+              ) : (
+                <button onClick={connectWallet} className="bg-sky-500 px-3 py-2 rounded-md">Connect Wallet</button>
+              )}
+            </div>
+          </header>
+
+          <main>
+            {activeTab === 'register' && <Register ownerWallet={ownerWallet} addToast={addToast} />}
+            {activeTab === 'enroll' && <Enroll addToast={addToast} />}
+            {activeTab === 'claim' && <Claim addToast={addToast} />}
+            {activeTab === 'ping' && <Ping addToast={addToast} />}
+          </main>
+
+          <footer className="text-center text-slate-400 mt-10 pb-10">Demo mode: backend/wallet fallbacks enabled for reliability.</footer>
+        </div>
+      );
+    }
+
+    // Render the App
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
